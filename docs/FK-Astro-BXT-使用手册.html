@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FK-Astro:BXT 使用手册</title>
+<style>
+:root{
+  --fg:#1f2328; --bg:#ffffff; --muted:#59636e; --line:#d8dee4;
+  --accent:#0969da; --accent-soft:#ddf4ff;
+  --code-bg:#f6f8fa; --th-bg:#eef2f6; --zebra:#fafbfc;
+  --warn-bg:#fff8e6; --warn-line:#e3b341;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; padding:0 20px 80px;
+  background:var(--bg); color:var(--fg);
+  font-family:"Microsoft YaHei UI","Microsoft YaHei","PingFang SC",
+              "Hiragino Sans GB","Source Han Sans SC","Noto Sans CJK SC",
+              -apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:16.5px; line-height:1.8;
+  text-rendering:optimizeLegibility;
+}
+.wrap{max-width:920px; margin:0 auto}
+h1,h2,h3,h4{line-height:1.35; font-weight:700; margin:2.1em 0 .7em}
+h1{
+  font-size:1.95em; margin-top:1.1em; padding-bottom:.45em;
+  border-bottom:3px solid var(--accent);
+}
+h2{
+  font-size:1.42em; padding-left:.6em; border-left:5px solid var(--accent);
+  margin-top:2.4em;
+}
+h3{font-size:1.16em; color:#243b53; margin-top:1.9em}
+h4{font-size:1.02em; color:#334e68}
+p{margin:.85em 0}
+a{color:var(--accent); text-decoration:none}
+a:hover{text-decoration:underline}
+hr{border:0; border-top:1px solid var(--line); margin:2.6em 0}
+
+/* 表格 —— 手册里信息最密集的部分, 重点优化 */
+.tbl{overflow-x:auto; margin:1.25em 0; border-radius:8px}
+table{
+  border-collapse:separate; border-spacing:0; width:100%;
+  font-size:.95em; display:table;
+  border:1px solid var(--line); border-radius:8px; overflow:hidden;
+}
+thead th{
+  background:var(--th-bg); font-weight:700; text-align:left;
+  border-bottom:1px solid var(--line); padding:.62em .85em;
+  white-space:nowrap;
+}
+thead th + th{border-left:1px solid var(--line)}
+tbody td{padding:.58em .85em; vertical-align:top; border-top:1px solid var(--line)}
+tbody td + td{border-left:1px solid var(--line)}
+tbody tr:first-child td{border-top:0}
+tbody tr:nth-child(even){background:var(--zebra)}
+
+/* 代码 / 示意块 */
+pre{
+  background:var(--code-bg); border:1px solid var(--line); border-radius:8px;
+  padding:.9em 1.1em; overflow-x:auto; margin:1.1em 0;
+  font-size:.92em; line-height:1.65;
+}
+pre code{
+  font-family:"Cascadia Mono",Consolas,"Courier New",monospace;
+  background:none; border:0; padding:0; white-space:pre;
+}
+code{
+  font-family:"Cascadia Mono",Consolas,"Courier New",monospace;
+  background:var(--code-bg); border:1px solid var(--line);
+  border-radius:4px; padding:.1em .38em; font-size:.92em;
+  color:#b02a37;
+}
+
+/* 引用(用于"提醒/警示") */
+blockquote{
+  margin:1.3em 0; padding:.85em 1.1em;
+  background:var(--accent-soft); border-left:5px solid var(--accent);
+  border-radius:0 8px 8px 0; color:#0a3069;
+}
+blockquote p{margin:.35em 0}
+
+ul,ol{margin:.8em 0; padding-left:1.7em}
+li{margin:.35em 0}
+
+strong{font-weight:700}
+
+/* 目录 */
+.toc{
+  background:var(--code-bg); border:1px solid var(--line); border-radius:10px;
+  padding:1.1em 1.5em 1.1em 1.2em; margin:1.8em 0 2.4em;
+}
+.toc-title{font-weight:700; font-size:1.06em; margin:0 0 .6em}
+.toc ul{list-style:none; margin:0; padding:0}
+.toc ul.lv2>li{margin:.3em 0; font-weight:600}
+.toc ul.lv3{margin:.25em 0 .5em; padding-left:1.35em}
+.toc ul.lv3>li{margin:.16em 0; font-weight:400; font-size:.93em}
+.toc ul.lv3 a{color:var(--muted)}
+.toc ul.lv3 a:hover{color:var(--accent)}
+.toc li.flat{font-weight:400}
+.toc a{color:var(--fg)}
+.toc a:hover{color:var(--accent); text-decoration:none}
+
+/* 表头锚点 */
+h2[id],h3[id]{scroll-margin-top:14px}
+
+@media (max-width:680px){
+  body{font-size:15.5px; padding:0 14px 60px}
+  h1{font-size:1.6em}
+  h2{font-size:1.25em}
+}
+@media print{
+  body{font-size:11pt; color:#000; padding:0}
+  .toc{page-break-after:always}
+  h1,h2,h3{page-break-after:avoid}
+  table,pre,blockquote{page-break-inside:avoid}
+  a{color:#000; text-decoration:none}
+  pre{background:#f5f5f5}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>FK-Astro:BXT 使用手册</h1>
+<p>版本 1.0 · Windows x64 · PixInsight 1.9 及以上</p>
+<hr>
+<nav class="toc"><div class="toc-title">目录</div><ul class="lv2"><li><a href="#1-这是什么">1. 这是什么</a></li><li><a href="#2-能解决什么问题">2. 能解决什么问题</a><ul class="lv3"><li><a href="#适合用的场景">适合用的场景</a></li><li><a href="#它替代掉的是什么">它替代掉的是什么</a></li><li><a href="#它不能做什么">它不能做什么</a></li></ul></li><li><a href="#3-运行要求">3. 运行要求</a><ul class="lv3"><li><a href="#系统">系统</a></li><li><a href="#模型文件唯一的外部依赖">模型文件(唯一的外部依赖)</a></li></ul></li><li><a href="#4-安装">4. 安装</a><ul class="lv3"><li><a href="#4-1-用安装脚本推荐">4.1 用安装脚本(推荐)</a></li><li><a href="#4-2-手动安装">4.2 手动安装</a></li><li><a href="#4-3-确认装好了">4.3 确认装好了</a></li><li><a href="#4-4-卸载">4.4 卸载</a></li></ul></li><li><a href="#5-使用">5. 使用</a><ul class="lv3"><li><a href="#5-1-界面总览">5.1 界面总览</a></li><li><a href="#5-2-参数详解">5.2 参数详解</a></li></ul></li><li><a href="#6-标准处理流程">6. 标准处理流程</a><ul class="lv3"><li><a href="#关键前提-必须在线性数据上运行">关键前提:必须在线性数据上运行</a></li><li><a href="#建议的顺序">建议的顺序</a></li><li><a href="#第一次用的建议">第一次用的建议</a></li><li><a href="#耗时参考">耗时参考</a></li></ul></li><li><a href="#7-参数速查表">7. 参数速查表</a></li><li><a href="#8-常见问题">8. 常见问题</a></li><li><a href="#9-效果预期与局限">9. 效果预期与局限</a><ul class="lv3"><li><a href="#能做到什么">能做到什么</a></li><li><a href="#做不到什么">做不到什么</a></li><li><a href="#什么时候不要用">什么时候不要用</a></li><li><a href="#一个诚实的提醒">一个诚实的提醒</a></li></ul></li><li><a href="#10-许可与致谢">10. 许可与致谢</a><ul class="lv3"><li><a href="#模型文件">模型文件</a></li><li><a href="#本模块">本模块</a></li><li><a href="#pixinsight">PixInsight</a></li></ul></li></ul></nav>
+<h2 id="1-这是什么">1. 这是什么</h2>
+<p>FK-Astro 是一个 PixInsight 处理模块,用神经网络对天文图像做<strong>去卷积</strong>:</p>
+<ul><li><strong>星点</strong>变得更紧实,顺便修正光学系统带来的轻微像差;</li><li><strong>非星点结构</strong>(星系、星云)的细节变得更清晰。</li></ul>
+<p>全部计算在你的本机完成,<strong>不联网,不上传任何图像</strong>。</p>
+<p>它采用 <strong>BlurXTerminator</strong>(下称 BXT)的同类模型与参数体系:同一组滑块、 同样的数值范围、同样的语义,方便从 BXT 迁移过来或者对照使用。 本模块由 fk-astro 项目独立实现,与 RC Astro 无隶属关系。</p>
+<hr>
+<h2 id="2-能解决什么问题">2. 能解决什么问题</h2>
+<h3 id="适合用的场景">适合用的场景</h3>
+<div class="tbl"><table><thead><tr><th>症状</th><th>典型原因</th></tr></thead><tbody><tr><td>星点发胖、边缘发散</td><td>光学系统像差、轻微失焦</td></tr><tr><td>星点"糊成一团"</td><td>采样不足(undersampling)</td></tr><tr><td>星系旋臂、星云细节发软</td><td>大气视宁 + 叠加后残留的 PSF</td></tr><tr><td>传统反卷积调不出好结果</td><td>需要手工给 PSF、要防振铃、参数互相牵制</td></tr></tbody></table></div>
+<h3 id="它替代掉的是什么">它替代掉的是什么</h3>
+<p>传统的 Richardson-Lucy 类反卷积要你:</p>
+<ol><li>手工估计或测量 PSF(形状、FWHM、是否随视场变化);</li><li>迭代次数、正则化强度、振铃抑制——三四个参数互相牵制;</li><li>一旦参数过头,就会出现黑边、振铃圈、"塑料感"。</li></ol>
+<p>这个模块把这些压缩成<strong>两三个强度值</strong>。神经网络自己判断哪里该锐化、 锐化到什么程度、哪里该收手。</p>
+<h3 id="它不能做什么">它不能做什么</h3>
+<ul><li><strong>不降噪</strong>。噪声水平基本保持不变,但锐化会让噪声看起来更明显。</li><li><strong>不去星</strong>。要分离星点请用 StarXTerminator 一类的工具。</li><li><strong>不修复拖线</strong>。跟踪误差造成的拖尾它处理不了。</li><li><strong>不做色彩校正、背景提取</strong>。请先用 DBE / SPCC。</li></ul>
+<hr>
+<h2 id="3-运行要求">3. 运行要求</h2>
+<h3 id="系统">系统</h3>
+<div class="tbl"><table><thead><tr><th>项目</th><th>要求</th></tr></thead><tbody><tr><td>操作系统</td><td><strong>Windows x64</strong> —— 仅此一种,不支持 macOS / Linux</td></tr><tr><td>PixInsight</td><td>1.9 或更新</td></tr><tr><td>内存</td><td>建议 ≥16 GB。处理时另需约 <strong>每百万像素 24 MB</strong> 的累加缓冲(三通道双精度);6000 万像素级图像建议 32 GB</td></tr><tr><td>显卡</td><td>不需要。有 NVIDIA GPU 可以加速</td></tr></tbody></table></div>
+<h3 id="模型文件唯一的外部依赖">模型文件(唯一的外部依赖)</h3>
+<p><strong>本模块不自带模型。</strong> 你需要准备一个 ONNX 模型文件:</p>
+<pre><code>bxt5.onnx        约 185 MB</code></pre>
+<p><strong>这是本模块在 Windows 下唯一的外部依赖。</strong></p>
+<p>推荐放在:</p>
+<pre><code>C:\Users\&lt;你的用户名&gt;\Documents\FKAstro\bxt5.onnx</code></pre>
+<p>位置可以任意,只要在模块的 <strong>Model path</strong> 里指到它就行。建议固定放在上面这个目录, 方便以后复用。</p>
+<blockquote><p>模型文件不随发行包提供,请自备。</p></blockquote>
+<h4>关于 onnxruntime</h4>
+<p>本模块的推理引擎是 <strong>ONNX Runtime</strong>,<strong>PixInsight 1.9 已经自带</strong>(版本 1.25 或更新),你不需要另外安装。模块运行时直接从 PixInsight 的 <code>bin\</code> 目录加载它。</p>
+<p>也就是说 —— 除了 PixInsight 本身,你只需要额外准备上面那一个模型文件。</p>
+<hr>
+<h2 id="4-安装">4. 安装</h2>
+<p>PixInsight <strong>强制要求模块签名</strong>,未签名的模块无法加载。</p>
+<h3 id="4-1-用安装脚本推荐">4.1 用安装脚本(推荐)</h3>
+<pre><code>cd &lt;解压目录&gt;\src\deploy
+.\install-to-pi.ps1 -DllPath .\FKAstro-pxm.dll `
+                    -XsskPath C:\path\to\你的密钥.xssk `
+                    -XsskPassword "你的密码" `
+                    -Sign -Install</code></pre>
+<div class="tbl"><table><thead><tr><th>参数</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>-DllPath</code></td><td><strong>必填</strong>,要安装的 DLL</td></tr>
+<tr><td><code>-XsskPath</code> / <code>-XsskPassword</code></td><td>签名密钥与密码,配合 <code>-Sign</code> 使用</td></tr>
+<tr><td><code>-PixInsightRoot</code></td><td>PixInsight 安装目录,默认 <code>D:\PixInsight</code></td></tr>
+<tr><td><code>-Sign</code></td><td>执行签名</td></tr>
+<tr><td><code>-Install</code></td><td>把 DLL 与 <code>.xsgn</code> 拷进 <code>bin\</code></td></tr>
+<tr><td><code>-Force</code></td><td>目标已存在同名文件时也覆盖(默认会拒绝)</td></tr>
+</tbody></table></div>
+<p>脚本会完成:签名 → 拷贝到 <code>PixInsight\bin\</code> → 提示重启。</p>
+<h3 id="4-2-手动安装">4.2 手动安装</h3>
+<p><strong>第一步:创建本地签名身份</strong>(只需一次)</p>
+<p>PixInsight 菜单 <code>Edit → Local Signing Identity...</code>,按提示创建, 会生成一个 <code>.xssk</code> 密钥文件。记住密码。</p>
+<p><strong>务必勾选「Make the local signing identity persistent」。</strong>不勾选的话,签名后的模块加载时会报 <code>Unknown code signing identity</code> 而无法使用 —— 这是 PixInsight 1.9 上最常见的坑。</p>
+
+<p><strong>第二步:签名</strong></p>
+<pre><code>D:\PixInsight\bin\PixInsight.exe ^
+  --sign-module-file=C:\path\to\FKAstro-pxm.dll ^
+  --xssk-file=C:\path\to\你的密钥.xssk ^
+  --xssk-password=&quot;你的密码&quot;</code></pre>
+<p>成功后会在 DLL 旁边生成同名的 <code>.xsgn</code> 文件。</p>
+<p><strong>第三步:拷贝</strong></p>
+<p>把 <strong><code>FKAstro-pxm.dll</code> 和 <code>FKAstro-pxm.xsgn</code> 两个文件</strong>一起放进:</p>
+<pre><code>&lt;你的 PixInsight 安装目录&gt;\bin\</code></pre>
+<p><strong>第四步:重启 PixInsight</strong></p>
+<p>启动时它会扫描 <code>bin\</code> 下的 <code>*-pxm.dll</code> 并加载。</p>
+<h3 id="4-3-确认装好了">4.3 确认装好了</h3>
+<p>菜单 <code>Process → Preprocessing</code> 里应该出现 <strong>FKAstroInference</strong>。 也可以看 <code>Process → Modules → Installed Modules</code> 列表里有没有 FKAstro。</p>
+<h3 id="4-4-卸载">4.4 卸载</h3>
+<p>删除 <code>PixInsight\bin\</code> 下的 <code>FKAstro-pxm.dll</code> 与 <code>FKAstro-pxm.xsgn</code>,然后重启 PixInsight 即可。模块不写注册表,也不在别处留文件。</p>
+<hr>
+<h2 id="5-使用">5. 使用</h2>
+<h3 id="5-1-界面总览">5.1 界面总览</h3>
+<p>入口:<strong><code>Process → Preprocessing → FKAstroInference</code></strong></p>
+<p>参数分五个区:</p>
+<div class="tbl"><table><thead><tr><th>分区</th><th>包含的控件</th></tr></thead><tbody><tr><td><strong>Model</strong></td><td>Model path</td></tr><tr><td><strong>Stellar Adjustments</strong></td><td>Sharpen stars、Adjust star halos</td></tr><tr><td><strong>Nonstellar Adjustments</strong></td><td>Sharpen nonstellar、Automatic PSF、PSF diameter (px)</td></tr><tr><td><strong>Options</strong></td><td>Correct only、Normalization</td></tr><tr><td><strong>Additional Options</strong></td><td>Tile overlap、Reflect border padding、Compute device、Verbose console output</td></tr></tbody></table></div>
+<p>用法和 PI 里其他进程一样:拖到图像上,或选中图像后点 <code>Apply</code>(F5)。</p>
+<h3 id="5-2-参数详解">5.2 参数详解</h3>
+<h4 id="model-模型">Model — 模型</h4>
+<p><strong>Model path</strong> 模型文件路径。点右边的 <code>...</code> 选择你放好的 <code>bxt5.onnx</code>。 <strong>这一项必须设置,否则无法运行。</strong></p>
+<h4 id="stellar-adjustments-星点">Stellar Adjustments — 星点</h4>
+<p><strong>Sharpen stars</strong> — 星点锐化强度 <code>0 ~ 0.7</code>,默认 <strong>0.5</strong></p>
+<p>最常调的一项。数值越大,星点收得越紧。</p>
+<div class="tbl"><table><thead><tr><th>取值</th><th>什么时候用</th></tr></thead><tbody><tr><td><code>0.3 ~ 0.4</code></td><td>星点本来就不错,只轻微收紧</td></tr><tr><td><code>0.5</code></td><td>通用起点</td></tr><tr><td><code>0.6 ~ 0.7</code></td><td>采样不足、星点明显发胖</td></tr></tbody></table></div>
+<p><strong>如果星点周围出现亮环或暗环</strong>,说明过头了,降 0.1 再试。</p>
+<p><strong>Adjust star halos</strong> — 星点光晕 <code>-0.5 ~ 0.5</code>,默认 <strong>0</strong></p>
+<p>正数加亮星点外圈,负数压暗。用于:</p>
+<ul><li>星点外围有"光晕/雾"——用负值压下去;</li><li>想给亮星一点柔和光辉——用正值。</li></ul>
+<p>绝大多数情况下保持 0。</p>
+<h4 id="nonstellar-adjustments-非星点">Nonstellar Adjustments — 非星点</h4>
+<p><strong>Sharpen nonstellar</strong> — 非星点锐化强度 <code>0 ~ 1.0</code>,默认 <strong>0.5</strong></p>
+<p>作用于星系、星云、尘埃带等非星点结构。这个值比星点那项敏感:</p>
+<div class="tbl"><table><thead><tr><th>取值</th><th>什么时候用</th></tr></thead><tbody><tr><td><code>0 ~ 0.3</code></td><td>只想轻微提细节,或图像本身噪声较大</td></tr><tr><td><code>0.5</code></td><td>通用起点</td></tr><tr><td><code>0.7 ~ 1.0</code></td><td>高信噪比的深空目标</td></tr></tbody></table></div>
+<p><strong>过头表现为</strong>:星系核心变成"塑料块"、暗部纹理变硬、噪点被放大成颗粒。</p>
+<p><strong>Automatic PSF</strong> — 自动估计 PSF 默认 <strong>开</strong></p>
+<p>让网络自己从图像里判断星点的实际大小。<strong>绝大多数情况保持开启。</strong></p>
+<p><strong>PSF diameter (px)</strong> — 手动 PSF 直径 <code>0 ~ 8</code>,默认 <strong>0</strong></p>
+<p>只有关掉 Automatic PSF 时才生效。适用于:</p>
+<ul><li>星点极度异常(严重失焦、拖线、非圆);</li><li>你知道自己的实际 FWHM,想强制给它。</li></ul>
+<p>一般填你的星点 FWHM(像素)。</p>
+<h4 id="options-选项">Options — 选项</h4>
+<p><strong>Correct only</strong> — 仅做校正 默认 <strong>关</strong></p>
+<p>打开后,前四个强度参数全部失效,只做"恢复被光学系统破坏的部分", 不做额外锐化。</p>
+<p>适用场景:<strong>你不确定要不要锐化,但想先把光学像差修掉</strong>。 这是最保守的用法,几乎不会翻车。第一次使用建议先试这个。</p>
+<p><strong>Normalization</strong> — 归一化方案 默认 <strong>FKv3</strong></p>
+<p>模块把图像换算成网络能接受的格式,再换算回来。 <strong>保持 FKv3 即可</strong>,这是当前的标准方案。</p>
+<p><code>None</code> 表示不做任何归一化,像素原样送进模型。只适用于归一化本身接近恒等的模型;
+用在 bxt5 上会得到错误结果且<strong>不会报错</strong>。除非你明确知道自己在做什么,否则不要选。</p>
+<h4 id="additional-options-附加选项">Additional Options — 附加选项</h4>
+<p><strong>Tile overlap</strong> — 分块重叠比例 <code>0 ~ 0.5</code>,默认 <strong>0.2</strong></p>
+<p>模块把大图切成 512×512 的块分别处理,重叠部分用余弦过渡融合。</p>
+<ul><li><strong>保持 0.2</strong>。这是标准值,接缝不可见。</li><li>改成 0 会更快,但极端情况下接缝可能出现极细微的痕迹。</li><li>不要超过 0.5。</li></ul>
+<p><strong>Reflect border padding</strong> — 边界镜像填充 仅旧方案使用。当前默认方案固定使用零填充,<strong>这一项不起作用</strong>。保持默认。</p>
+<p><strong>Compute device</strong> — 计算设备 <code>Auto / GPU / CPU</code>,默认 <strong>Auto</strong></p>
+<ul><li><code>Auto</code>:有可用的 GPU 就用,否则用 CPU</li><li><code>GPU</code>:强制 GPU。<strong>如果驱动不兼容会报错</strong>,这时改回 <code>Auto</code></li><li><code>CPU</code>:强制 CPU。最稳,但慢</li></ul>
+<p><strong>Verbose console output</strong> — 控制台详细输出 默认 <strong>开</strong></p>
+<p>运行时会往 PI 的 Process Console 打印归一化参数、分块数、耗时。 <strong>排查问题时很有用</strong>,平时可以关掉。</p>
+<hr>
+<h2 id="6-标准处理流程">6. 标准处理流程</h2>
+<h3 id="关键前提-必须在线性数据上运行">关键前提:必须在线性数据上运行</h3>
+<p>去卷积在<strong>未拉伸</strong>的线性数据上才有意义。<strong>不要</strong>在已经 STF 拉伸、 做过曲线或 HistogramTransformation 的图像上运行。</p>
+<h3 id="建议的顺序">建议的顺序</h3>
+<pre><code>1. 校准 + 叠加(得到 master)
+2. 裁剪
+3. 背景提取        DBE / ABE
+4. 色彩校准        SPCC
+5. ★ 去卷积        ← 就是这一步
+6. 降噪            NoiseXTerminator 等
+7. 拉伸            曲线 / STF / 遮罩拉伸
+8. 后续调整        饱和、对比、局部增强</code></pre>
+<p><strong>注意第 5 步和第 6 步的顺序</strong>:先去卷积,后降噪。 反过来做的话,降噪会把星点边缘抹平,去卷积就失去意义了。</p>
+<h3 id="第一次用的建议">第一次用的建议</h3>
+<ol><li><strong>先跑 <code>Correct only</code></strong>,看它把图变成什么样。这一步最安全,基本不会翻车。</li><li>觉得效果不够,再关掉 Correct only,用 <code>Sharpen stars = 0.5</code>、</li></ol>
+<p><code>Sharpen nonstellar = 0.5</code> 再跑一次。</p>
+<ol><li>用 Blink 或对比视图,把原图和处理结果来回切着看。</li><li><strong>保留原图</strong>。不要在同一张图上反复叠加运行——会累积过度锐化。</li></ol>
+<h3 id="耗时参考">耗时参考</h3>
+<p>CPU 模式下大约 <strong>每百万像素 5~6 秒</strong>:</p>
+<div class="tbl"><table><thead><tr><th>图像尺寸</th><th>像素数</th><th>参考耗时(CPU)</th></tr></thead><tbody><tr><td>2600 × 2900</td><td>7.5 M</td><td>约 45 秒</td></tr><tr><td>3000 × 3000</td><td>9 M</td><td>约 50 秒</td></tr><tr><td>4900 × 3200</td><td>15.7 M</td><td>约 1.5 分钟</td></tr><tr><td>6000 × 3800</td><td>23 M</td><td>约 2 分钟</td></tr></tbody></table></div>
+<p>GPU 会明显更快。实际时间取决于 CPU 型号与内存带宽。</p>
+<hr>
+<h2 id="7-参数速查表">7. 参数速查表</h2>
+<div class="tbl"><table><thead><tr><th>参数</th><th>范围</th><th>默认</th><th>一句话</th></tr></thead><tbody><tr><td>Model path</td><td>—</td><td>(空)</td><td>必填,指向 <code>bxt5.onnx</code></td></tr><tr><td>Sharpen stars</td><td>0 ~ 0.7</td><td><strong>0.5</strong></td><td>星点锐化强度</td></tr><tr><td>Adjust star halos</td><td>−0.5 ~ 0.5</td><td><strong>0</strong></td><td>星点外圈明暗</td></tr><tr><td>Sharpen nonstellar</td><td>0 ~ 1.0</td><td><strong>0.5</strong></td><td>非星点结构锐化</td></tr><tr><td>Automatic PSF</td><td>开 / 关</td><td><strong>开</strong></td><td>自动估星点大小</td></tr><tr><td>PSF diameter (px)</td><td>0 ~ 8</td><td><strong>0</strong></td><td>手动指定 FWHM</td></tr><tr><td>Correct only</td><td>开 / 关</td><td><strong>关</strong></td><td>只校正,不锐化</td></tr><tr><td>Normalization</td><td>FKv3 / None</td><td><strong>FKv3</strong></td><td>保持 FKv3</td></tr><tr><td>Tile overlap</td><td>0 ~ 0.5</td><td><strong>0.2</strong></td><td>保持 0.2</td></tr><tr><td>Reflect border padding</td><td>开 / 关</td><td><strong>开</strong></td><td>当前方案下无效,保持默认</td></tr><tr><td>Compute device</td><td>Auto / GPU / CPU</td><td><strong>Auto</strong></td><td>出错就改 Auto</td></tr><tr><td>Verbose console output</td><td>开 / 关</td><td><strong>开</strong></td><td>打印诊断信息</td></tr></tbody></table></div>
+<p><strong>只调两项就能出片的情况:</strong> <code>Sharpen stars = 0.5</code> + <code>Sharpen nonstellar = 0.5</code>,其余全部默认。</p>
+<hr>
+<h2 id="8-常见问题">8. 常见问题</h2>
+<p><strong>Q:菜单里找不到 FKAstroInference</strong></p>
+<ol><li>确认 <code>FKAstro-pxm.dll</code> <strong>和</strong> <code>FKAstro-pxm.xsgn</code> 都在 <code>PixInsight\bin\</code> 下;</li><li>确认签名成功(没有 <code>.xsgn</code> 就不会加载);</li><li>完全退出 PixInsight 再启动(不是关窗口);</li><li>看 PI 启动时的 Process Console 有没有报错。</li></ol>
+<p><strong>Q:报错说找不到模型 / 无法加载模型</strong></p>
+<p><code>Model path</code> 没设或路径不对。注意:</p>
+<ul><li>必须是 <code>.onnx</code> 文件;</li><li>路径里有中文或空格一般没问题,但建议放在简单路径下;</li><li>文件大小应该约 185 MB,如果是几百字节说明文件损坏。</li></ul>
+<p><strong>Q:运行到一半报错退出</strong></p>
+<p>多半是内存不足。处理方法:</p>
+<ul><li>关闭其他程序;</li><li>分块裁剪后分别处理;</li><li>或者换 <code>Compute device = CPU</code>(GPU 显存不足时常表现为这种报错)。</li></ul>
+<p><strong>Q:输出全黑 / 全白</strong></p>
+<p>检查输入是不是已经是拉伸过的图像。本模块只处理<strong>线性数据</strong>。 也检查一下图像位深——16 位整数图和 32 位浮点图都支持,但不要是已经归一化过的特殊格式。</p>
+<p><strong>Q:星点周围出现一圈亮环或暗环</strong></p>
+<p><code>Sharpen stars</code> 过头了。降 0.1 再试。也可以配合 <code>Adjust star halos</code> 用负值压一下。</p>
+<p><strong>Q:星系核心变成一块"塑料"</strong></p>
+<p><code>Sharpen nonstellar</code> 过头。降到 0.3 左右,或改用 <code>Correct only</code>。</p>
+<p><strong>Q:接缝能看到?</strong></p>
+<p>正常不会。如果出现:</p>
+<ul><li>确认 <code>Tile overlap</code> 是 0.2;</li><li>用 <code>Verbose</code> 看分块数是否合理;</li><li>把结果反馈出来。</li></ul>
+<p><strong>Q:比 BXT 慢</strong></p>
+<p>目前只做了单线程为主的实现,GPU 加速也还在完善。CPU 模式下参考 §6 的耗时表。</p>
+<p><strong>Q:能和 BXT 混用吗?</strong></p>
+<p>不建议在同一张图上两个都跑。要对比的话,用原图各跑一次再比。</p>
+<hr>
+<h2 id="9-效果预期与局限">9. 效果预期与局限</h2>
+<h3 id="能做到什么">能做到什么</h3>
+<p>在正常曝光的深空数据上,典型效果是:</p>
+<ul><li>星点 FWHM 收紧约 <strong>2~8%</strong>(取决于原始星点有多松散;实测单张 300 秒数据约 1.8%,深叠加数据约 8%)。不是越多越好,过度收紧会失去自然感;</li><li>星系旋臂、行星状星云的边缘轮廓更明确;</li><li>光学系统的轻微像差(球差、彗差)得到部分修正。</li></ul>
+<h3 id="做不到什么">做不到什么</h3>
+<ul><li><strong>不能创造不存在的信息</strong>。如果原始数据里没有那个细节,它变不出来。</li><li><strong>不能修复严重失焦或拖线</strong>。</li><li><strong>不会改善信噪比</strong>。锐化之后噪声通常看起来更明显。</li><li><strong>对单张短曝光效果有限</strong>。信噪比太低时,它更倾向于不动。</li></ul>
+<h3 id="什么时候不要用">什么时候不要用</h3>
+<div class="tbl"><table><thead><tr><th>情况</th><th>为什么</th></tr></thead><tbody><tr><td>图像已经拉伸过</td><td>去卷积的数学前提不成立,结果不可控</td></tr><tr><td>星点严重拖线</td><td>网络假设星点是圆形对称的</td></tr><tr><td>目标是密集星场(如球状星团核心)</td><td>容易过度处理,建议降低强度或只用 Correct only</td></tr><tr><td>月亮 / 行星</td><td>不适用,这是深空模型</td></tr><tr><td>已经跑过一次且结果满意</td><td>反复叠加会累积过度锐化</td></tr></tbody></table></div>
+<h3 id="一个诚实的提醒">一个诚实的提醒</h3>
+<p>这类工具的共同风险是<strong>"看起来很锐"但实际是假的</strong>:把噪声当成细节放大、 把星点压出人造的光圈。判断标准很简单——<strong>和原图来回切换看</strong>, 如果你只能看出"更亮更硬"而看不出"更多结构",那就是过了。</p>
+<hr>
+<h2 id="10-许可与致谢">10. 许可与致谢</h2>
+<h3 id="模型文件">模型文件</h3>
+<p>本模块<strong>不自带模型</strong>。模型文件由使用者自行准备,其授权条款与本模块无关, 请自行确认你的使用方式符合该模型的许可。</p>
+<h3 id="本模块">本模块</h3>
+<p>FK-Astro 由 fk-astro 项目实现,基于开源项目 <strong>fk-astro</strong> 逆向出的 BlurXTerminator 调用约定。</p>
+<p><strong>BlurXTerminator 是 RC Astro 的产品</strong>,本模块与其无隶属关系, 也未获得 RC Astro 的背书。若你需要官方支持与保证,请使用正版 BXT。</p>
+<h3 id="pixinsight">PixInsight</h3>
+<p>PixInsight 是 Pleiades Astrophoto S.L. 的产品。 本模块通过 PCL(PixInsight Class Library)开发。 对外分发需申请 CPD(Certified PixInsight Developer)身份; 自用签名请使用 <code>Edit → Local Signing Identity</code>。</p>
+</div>
+</body>
+</html>

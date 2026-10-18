@@ -1,0 +1,17 @@
+# 默认按文本处理,自动识别换行
+* text=auto
+
+# PowerShell 脚本保持 CRLF(避免 BOM 之外再出问题)
+*.ps1 text eol=crlf
+
+# 二进制——不要做任何换行或编码转换
+*.dll binary
+*.lib binary
+*.obj binary
+*.onnx binary
+*.xisf binary
+*.fit binary
+*.fits binary
+*.png binary
+*.jpg binary
+*.zip binary

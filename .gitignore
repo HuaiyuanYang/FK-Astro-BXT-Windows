@@ -1,0 +1,36 @@
+# ---- 构建产物 ----
+_pcl_build/
+_module_build/
+_engine_test/
+*.obj
+*.lib
+*.exp
+*.pdb
+*.ilk
+*.log
+
+# ---- Python ----
+__pycache__/
+*.pyc
+*.pyo
+
+# ---- 签名相关(私钥绝不能进仓库)----
+*.xssk
+*.xsgn
+
+# ---- 本地测试素材(体积大,且含第三方数据)----
+samples/*
+!samples/README.md
+
+# ---- 模型权重(用户自备,不入库)----
+*.onnx
+*.mlpackage/
+
+# ---- 编辑器 / 系统 ----
+.vs/
+.vscode/
+*.user
+*.suo
+Thumbs.db
+desktop.ini
+.DS_Store
