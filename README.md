@@ -93,7 +93,7 @@ PixInsight 菜单 `Edit → Local Signing Identity...`,设定密码,会生成一
 参数保持默认即可。第一次使用建议先勾上 **Correct only**,只修光学像差、不动锐化,
 确认效果没问题再放开。
 
-完整的参数说明、处理顺序和常见问题见 docs/manual.html。
+完整的参数说明、处理顺序和常见问题见 `docs/manual.html`。
 
 在 GitHub 页面上直接点开这个文件只会看到源码,**下载压缩包后用浏览器打开**即可正常阅读。
 
