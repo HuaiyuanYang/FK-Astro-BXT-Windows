@@ -1,112 +1,142 @@
-﻿# FK-Astro:BXT
+# FK-Astro:BXT
 
-PixInsight 的神经网络去卷积模块 —— 采用 BlurXTerminator 的参数体系,独立实现。
+Windows 版 PixInsight 神经网络去卷积模块。
 
-**用户请看 → [`docs/FK-Astro-BXT-使用手册.html`](docs/FK-Astro-BXT-使用手册.html)**
+用 AI 模型收紧星点、恢复星系与星云的细节,代替需要手工给 PSF、反复调参数的
+传统反卷积。参数体系与 BlurXTerminator 一致,习惯可以直接迁移。
 
 ---
 
-## 需要什么
+## 它能做什么
 
-| 依赖 | 从哪来 |
+- 星点更紧实,顺带修正轻微的光学像差(球差、彗差)
+- 星系旋臂、行星状星云的边缘轮廓更明确
+- 把「估 PSF + 迭代次数 + 正则化强度」三四个互相牵制的参数压成一两个强度值
+
+**做不到**:不降噪、不去星、不修拖线、不做色彩校正或背景提取。
+
+---
+
+## 运行要求
+
+| 项目 | 要求 |
 |---|---|
-| Windows x64 + PixInsight 1.9+ | 你已有 |
-| **ONNX Runtime** | **PixInsight 1.9 自带**(1.25+),无需另装 |
-| `bxt5.onnx`(约 185 MB) | **自备**,放在本目录的**上一级** |
+| 操作系统 | **Windows x64**(仅此一种) |
+| PixInsight | **1.9 或更新** |
+| 内存 | 建议 16 GB 以上;6000 万像素级图像建议 32 GB |
+
+**不需要另装任何运行库。** 推理引擎(PixInsight 1.9 自带的 ONNX Runtime)
+和 C++ 运行库 PixInsight 都已包含。
+
+---
+
+## 准备模型文件
+
+本模块**不附带模型权重**。你需要一个 ONNX 模型文件(约 185 MB)。
+
+放在哪里都可以,装好模块后在 `Model path` 里指过去即可。建议单独建一个目录:
 
 ```
-Deepseek Daily/
-├── bxt5.onnx          ← 放这里
-└── FK-Astro-BXT-Windows/      ← 本项目
+D:\Astro\Models\bxt5.onnx
 ```
 
-脚本会自动在 `../bxt5.onnx`、`./bxt5.onnx` 两处查找;模块本身通过 `Model path` 参数指定,位置随意。
+模型的获取方式与授权请自行确认。
 
 ---
 
-## 状态
+## 安装
 
-| 部分 | 状态 |
-|---|---|
-| 模型转换(CoreML `.mlpackage` → ONNX) | ✅ 权重逐字节无损 |
-| 宿主归一化方案 **FKv3** | ✅ 与官方 BXT 对比验证,P99 < 1e-4 |
-| Python 参考实现 | ✅ `python/fkv3.py` |
-| **C++ 模块(FKv3)** | ✅ **已移植,编译通过** |
-| 可安装的 `.dll` | ✅ `src/deploy/FKAstro-pxm.dll`(659 KB,待签名) |
+PixInsight 要求模块签名,**未签名的模块无法加载**。整个过程约 1 分钟。
 
-> 需要签名后才能装进 PixInsight,见 [`docs/FK-Astro-BXT-使用手册.html`](docs/FK-Astro-BXT-使用手册.html) §4。
+### 第 1 步:创建签名身份(只需一次)
 
----
+PixInsight 菜单 `Edit → Local Signing Identity...`,设定密码,会生成一个 `.xssk` 密钥文件。
 
-## 目录
+> ⚠️ **务必勾选 "Make the local signing identity persistent"**
+>
+> 不勾选的话,签好的模块在加载时会报 `Unknown code signing identity`。
+> 这是 PixInsight 1.9 上最常见的坑。
 
-| 目录 | 内容 |
-|---|---|
-| `docs/` | 用户手册(HTML) |
-| `src/` | C++ 模块源码、构建脚本、ORT 头文件、部署脚本 |
-| `python/` | FKv3 参考实现、验证工具、模型转换器 |
+### 第 2 步:签名
 
-| `samples/` | 测试图放置处。**默认不存在,需要复验时自行新建** |
+把 `FKAstro-pxm.dll` 从压缩包里解出来,然后执行:
 
-> `MIL.proto` / `onnx.proto3` 是模型转换的字段号依据,与运行无关,已放到工作区根目录的 `proto\`。
-
----
-
-## 已完成:FKv3 移植
-
-`src/FKAstroProcess.cpp` 的归一化/分块/融合已全部换成 FKv3,数学放在
-`src/FKv3Pipeline.h`(与离线自检共用同一份实现)。
-
-**验证**:编译 `.\build.ps1 -Step v3test` 后得到 `src/_engine_test/fkv3_selftest.exe`,
-再配 `python/compare_fkv3_selftest.py` 与 Python 参考实现对账,
-7 个用例(单块/多块/小图/单色/overlap 0/大图)与 Python 参考实现的
-最大偏差 **2.3e-08**,相关 1.000000000。
-
-**对照依据**:
-
-- [`src/FKv3Pipeline.h`](src/FKv3Pipeline.h) —— FKv3 实现(归一化 / 分块 / 融合),离线自检与模块共用同一份
-- [`python/fkv3.py`](python/fkv3.py) —— Python 参考实现(已与官方 BXT 对比)
-- 公式速查:工作区根目录 `notes/HANDOVER-交接清单.md` §7
-
-- [`python/fkv3.py`](python/fkv3.py) —— 已验证的 Python 版
-
----
-
-## 构建
-
-```powershell
-cd src
-.\bootstrap-toolchain.ps1      # 首次:装 MSVC Build Tools + Windows SDK(需联网)
-.\build.ps1 -Step all
+```
+"D:\PixInsight\bin\PixInsight.exe" ^
+  --sign-module-file="C:\路径\FKAstro-pxm.dll" ^
+  --xssk-file="C:\路径\你的密钥.xssk" ^
+  --xssk-password="你的密码"
 ```
 
-产物:`src\build\FKAstro-pxm.dll`,签名后放入 `PixInsight\bin\`。
-详见 [`src/BUILD.md`](src/BUILD.md)。
+成功后在 DLL 旁边会多出一个同名的 `FKAstro-pxm.xsgn` 文件。
 
----
+### 第 3 步:拷贝并重启
 
-## Python 侧
+把 **两个文件**一起放进 PixInsight 的模块目录:
 
-```powershell
-pip install numpy onnxruntime
-python python\fkv3.py
+```
+<PixInsight 安装目录>\bin\
+├── FKAstro-pxm.dll
+└── FKAstro-pxm.xsgn
 ```
 
-验证方法见 [`python/README.md`](python/README.md)。
+重启 PixInsight。菜单里出现 `Process → Preprocessing → FKAstroInference` 就是装好了。
 
 ---
 
-## 许可与声明
+## 使用
 
-**源代码与文档采用 MIT**,见 [`LICENSE`](LICENSE)。
+选中一张图像 → 打开 `FKAstroInference` → 在 **Model path** 里指到你的模型文件 → `Apply`。
 
-MIT 只覆盖本仓库的代码与文档,不包括 PixInsight / PCL、BlurXTerminator,
-也不包括任何 ONNX 模型权重 —— 模型由使用者自备,其使用方式需自行确认合规。
+**必须在线性(未拉伸)数据上运行。** 已经拉伸过的图,去卷积的数学前提不成立。
 
-- 本模块基于上游开源项目 **fk-astro** 的调用约定独立实现,与 **RC Astro** 无隶属关系,未获其背书。
-- BlurXTerminator 是 RC Astro 的产品。需要官方支持与保证请使用正版。
-- **模型文件不随本仓库分发。**
-- 分发模块二进制还需 PixInsight 签名:自用走 Local Signing Identity,对外需 CPD。
+参数保持默认即可。第一次使用建议先勾上 **Correct only**,只修光学像差、不动锐化,
+确认效果没问题再放开。
+
+完整的参数说明、处理顺序和常见问题见
+**[使用手册](https://huaiyuanyang.github.io/FK-Astro-BXT-Windows/manual.html)**。
+
+---
+
+## 常见问题
+
+**提示 `Unknown code signing identity`**
+
+签名身份没有持久化。回到第 1 步,勾上 persistent 后重新签一次。
+
+**提示找不到模型,或输出全黑**
+
+`Model path` 没指对,或指到的不是本模块对应的模型文件。
+
+**能不能拷给别人用?**
+
+可以,但对方必须用**自己的**签名身份重新签一次(第 2 步)。
+签名与 PixInsight 许可证绑定,已签好的文件拷到别人机器上不认。
+
+**处理到一半内存不足**
+
+本模块按三通道双精度累加融合结果,大图会额外占用约每百万像素 24 MB。
+6000 万像素级图像建议 32 GB 内存,或先裁切再处理。
+
+---
+
+## 目录说明
+
+日常使用只需要 `FKAstro-pxm.dll` 和手册。其余目录是源码、构建脚本和模型转换工具,
+供需要自行编译或转换模型的人使用,普通使用不需要碰。
+
+---
+
+## 许可
+
+源代码与文档采用 **MIT**,见 [LICENSE](LICENSE)。
+
+MIT 只覆盖本仓库的代码与文档,不包括 PixInsight 及其 PCL、BlurXTerminator,
+也不包括任何模型权重。模型由使用者自备,其使用方式需自行确认合规。
+
+本模块基于开源项目 fk-astro 的调用约定独立实现,与 RC Astro、
+Pleiades Astrophoto 均无隶属关系,未获其背书。
+
 ---
 
 ## 致谢
