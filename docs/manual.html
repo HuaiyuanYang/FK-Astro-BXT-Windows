@@ -159,42 +159,95 @@ h2[id],h3[id]{scroll-margin-top:14px}
 <p>也就是说 —— 除了 PixInsight 本身,你只需要额外准备上面那一个模型文件。</p>
 <hr>
 <h2 id="4-安装">4. 安装</h2>
-<p>PixInsight <strong>强制要求模块签名</strong>,未签名的模块无法加载。</p>
+<p>装一个 PixInsight 模块要做<strong>三件事</strong>,缺任何一件菜单里都不会出现:</p>
+<ol>
+<li><strong>签名</strong> —— PixInsight 强制要求模块签名,未签名的模块无法加载</li>
+<li><strong>拷贝</strong> —— 把 <code>.dll</code> 与 <code>.xsgn</code> 放进 <code>bin\</code></li>
+<li><strong>登记</strong> —— 把模块写进 PixInsight 的模块清单。<strong>PI 1.9 不再自动扫描 <code>bin\</code></strong>,漏了这步会「文件明明在、菜单里却没有」</li>
+</ol>
+
 <h3 id="4-1-用安装脚本推荐">4.1 用安装脚本(推荐)</h3>
+<p><strong>先把 PixInsight 完全退出。</strong>签名期间 PI 不能处于运行状态 —— 否则新启动的进程只会把签名请求转交给已运行的实例并立刻返回,脚本无法判断签名何时完成。</p>
 <pre><code>cd &lt;解压目录&gt;\src\deploy
 .\install-to-pi.ps1 -DllPath .\FKAstro-pxm.dll `
                     -XsskPath C:\path\to\你的密钥.xssk `
                     -XsskPassword "你的密码" `
-                    -Sign -Install</code></pre>
+                    -Sign -Install -Register</code></pre>
 <div class="tbl"><table><thead><tr><th>参数</th><th>说明</th></tr></thead><tbody>
 <tr><td><code>-DllPath</code></td><td><strong>必填</strong>,要安装的 DLL</td></tr>
 <tr><td><code>-XsskPath</code> / <code>-XsskPassword</code></td><td>签名密钥与密码,配合 <code>-Sign</code> 使用</td></tr>
 <tr><td><code>-PixInsightRoot</code></td><td>PixInsight 安装目录,默认 <code>D:\PixInsight</code></td></tr>
 <tr><td><code>-Sign</code></td><td>执行签名</td></tr>
 <tr><td><code>-Install</code></td><td>把 DLL 与 <code>.xsgn</code> 拷进 <code>bin\</code></td></tr>
+<tr><td><code>-Register</code></td><td><strong>登记到 PixInsight 模块清单</strong>(PI 1.9 必需)。会先备份设置文件</td></tr>
 <tr><td><code>-Force</code></td><td>目标已存在同名文件时也覆盖(默认会拒绝)</td></tr>
 </tbody></table></div>
-<p>脚本会完成:签名 → 拷贝到 <code>PixInsight\bin\</code> → 提示重启。</p>
-<h3 id="4-2-手动安装">4.2 手动安装</h3>
-<p><strong>第一步:创建本地签名身份</strong>(只需一次)</p>
-<p>PixInsight 菜单 <code>Edit → Local Signing Identity...</code>,按提示创建, 会生成一个 <code>.xssk</code> 密钥文件。记住密码。</p>
-<p><strong>务必勾选「Make the local signing identity persistent」。</strong>不勾选的话,签名后的模块加载时会报 <code>Unknown code signing identity</code> 而无法使用 —— 这是 PixInsight 1.9 上最常见的坑。</p>
+<p>脚本依次完成:体检 → 签名 → 拷贝 → 登记。全部成功后启动 PixInsight 即可。</p>
 
-<p><strong>第二步:签名</strong></p>
+<h3 id="4-2-手动安装">4.2 手动安装</h3>
+
+<p><strong>第一步:生成签名密钥</strong>(只需一次)</p>
+<p>菜单 <code>Script → Development → SigningKeys</code>,在弹出的窗口里:</p>
+<div class="tbl"><table><thead><tr><th>项目</th><th>怎么填</th></tr></thead><tbody>
+<tr><td>Generate Signing Keys</td><td>☑ 勾选</td></tr>
+<tr><td>Developer</td><td><strong>留空</strong>。这一项是给认证开发者(CPD)用的</td></tr>
+<tr><td><strong>Local signing identity</strong></td><td>☑ <strong>勾选</strong>(关键)</td></tr>
+<tr><td>Export Signing Keys</td><td>☐ 不要勾</td></tr>
+<tr><td>Output → Keys file</td><td>密钥文件路径,<strong>必须以 <code>.xssk</code> 结尾</strong>,例如 <code>C:\PI\me.xssk</code></td></tr>
+<tr><td>Output → Password</td><td>设一个保护密码。<strong>记牢</strong>,后面签名还要用</td></tr>
+<tr><td>Run</td><td>点一下生成</td></tr>
+</tbody></table></div>
+
+<p><strong>第二步:把密钥注册给 PixInsight</strong></p>
+<p>菜单 <code>Edit → Local Signing Identity...</code>:</p>
+<div class="tbl"><table><thead><tr><th>字段</th><th>填什么</th></tr></thead><tbody>
+<tr><td>Keys file</td><td>第一步生成的 <code>.xssk</code> 完整路径</td></tr>
+<tr><td>Password</td><td>第一步设的保护密码</td></tr>
+<tr><td><strong>Make the local signing identity persistent</strong></td><td>☑ <strong>必须勾</strong></td></tr>
+<tr><td>Remove the local signing identity</td><td>☐ 不要勾</td></tr>
+</tbody></table></div>
+<p>⚠️ <strong>这一步只能「选择」已有的 <code>.xssk</code>,不能新建。</strong>所以顺序不能反 —— 必须先做第一步。</p>
+<p>⚠️ 不勾「persistent」的话,签名身份只在当前这次运行里存在,模块加载时会报 <code>Unknown code signing identity</code> —— 这是 PixInsight 1.9 上最常见的坑。</p>
+
+<p><strong>第三步:签名</strong></p>
 <pre><code>D:\PixInsight\bin\PixInsight.exe ^
   --sign-module-file=C:\path\to\FKAstro-pxm.dll ^
   --xssk-file=C:\path\to\你的密钥.xssk ^
-  --xssk-password=&quot;你的密码&quot;</code></pre>
+  --xssk-password="你的密码"</code></pre>
 <p>成功后会在 DLL 旁边生成同名的 <code>.xsgn</code> 文件。</p>
-<p><strong>第三步:拷贝</strong></p>
-<p>把 <strong><code>FKAstro-pxm.dll</code> 和 <code>FKAstro-pxm.xsgn</code> 两个文件</strong>一起放进:</p>
+<p><strong>签名是设备相关的</strong> —— 签名身份由你的 PixInsight 许可证派生,所以每台机器都要就地重签,<strong>不能把别的机器上的 <code>.xsgn</code> 拷过来</strong>。</p>
+
+<p><strong>第四步:拷贝</strong></p>
+<p>把 <code>FKAstro-pxm.dll</code> 和 <code>FKAstro-pxm.xsgn</code> 两个文件一起放进:</p>
 <pre><code>&lt;你的 PixInsight 安装目录&gt;\bin\</code></pre>
-<p><strong>第四步:重启 PixInsight</strong></p>
-<p>启动时它会扫描 <code>bin\</code> 下的 <code>*-pxm.dll</code> 并加载。</p>
+
+<p><strong>第五步:登记到模块清单</strong></p>
+<p>PixInsight 1.9 不会自动发现 <code>bin\</code> 里的新 DLL,必须把它写进设置文件:</p>
+<pre><code>%APPDATA%\Pleiades\core-001-pxi.settings</code></pre>
+<p>这个文件里有两个 <code>&lt;i k="Modules"&gt;</code> 节点(另一个是文件对话框的历史目录),要挑<strong>包含大量 <code>-pxm.dll</code> 条目</strong>的那个。在它的 <code>&lt;/i&gt;</code> 之前插入一行:</p>
+<pre><code>&lt;v k="00000059" t="s"&gt;@pxi_bin_dir/FKAstro-pxm.dll&lt;/v&gt;</code></pre>
+<p>编号取清单里当前最大编号 +1。<strong>改之前务必备份这个文件</strong>,改坏了就还原。</p>
+<p>更省事也更安全的做法:直接跑 <code>install-to-pi.ps1 -Register</code>,它会挑对节点、自动编号、备份并校验 XML。</p>
+
+<p><strong>第六步:重启 PixInsight</strong></p>
+
 <h3 id="4-3-确认装好了">4.3 确认装好了</h3>
-<p>菜单 <code>Process → Preprocessing</code> 里应该出现 <strong>FKAstroInference</strong>。 也可以看 <code>Process → Modules → Installed Modules</code> 列表里有没有 FKAstro。</p>
+<p>菜单 <code>Process → Preprocessing</code> 里应该出现 <strong>FKAstroInference</strong>。</p>
+<p>没出现的话,按这个表查:</p>
+<div class="tbl"><table><thead><tr><th>现象</th><th>原因</th><th>处理</th></tr></thead><tbody>
+<tr><td>菜单里没有 FKAstroInference,启动也不报错</td><td>没有登记到模块清单</td><td>跑 <code>install-to-pi.ps1 -Register</code>,或在 PI 启动时控制台看「Installing N module(s)」里有没有它</td></tr>
+<tr><td>启动时提示 <code>Unknown code signing identity</code></td><td>签名身份没设成持久化</td><td>重做第二步,<strong>勾上 persistent</strong>,再签一次</td></tr>
+<tr><td>启动时提示模块签名无效</td><td>签名之后 DLL 又被改过</td><td>重新签名(签名针对的是文件字节,换一个字节就失效)</td></tr>
+<tr><td>控制台报找不到模块文件</td><td>清单里有、<code>bin\</code> 里没有</td><td>把两个文件拷进 <code>bin\</code>,或把清单那行删掉</td></tr>
+</tbody></table></div>
+
 <h3 id="4-4-卸载">4.4 卸载</h3>
-<p>删除 <code>PixInsight\bin\</code> 下的 <code>FKAstro-pxm.dll</code> 与 <code>FKAstro-pxm.xsgn</code>,然后重启 PixInsight 即可。模块不写注册表,也不在别处留文件。</p>
+<p>两件事都要做:</p>
+<ol>
+<li>删掉 <code>PixInsight\bin\</code> 下的 <code>FKAstro-pxm.dll</code> 与 <code>FKAstro-pxm.xsgn</code></li>
+<li>从设置文件的 <code>&lt;i k="Modules"&gt;</code> 清单里删掉 <code>@pxi_bin_dir/FKAstro-pxm.dll</code> 那一行</li>
+</ol>
+<p>然后重启 PixInsight。<strong>只删文件、不删清单</strong>的话,PI 启动时会去加载一个不存在的模块并在控制台报错。</p>
 <hr>
 <h2 id="5-使用">5. 使用</h2>
 <h3 id="5-1-界面总览">5.1 界面总览</h3>
@@ -229,6 +282,7 @@ h2[id],h3[id]{scroll-margin-top:14px}
 <p><strong>Correct only</strong> — 仅做校正 默认 <strong>关</strong></p>
 <p>打开后,前四个强度参数全部失效,只做"恢复被光学系统破坏的部分", 不做额外锐化。</p>
 <p>适用场景:<strong>你不确定要不要锐化,但想先把光学像差修掉</strong>。 这是最保守的用法,几乎不会翻车。第一次使用建议先试这个。</p>
+<p><strong>跑完看不出变化是正常的。</strong> 这个模式只修正星点的形状,改动量通常在万分之一量级,在屏幕拉伸下几乎不可见 —— 不是没生效。想看明显的锐化效果,请关掉它并把 <code>Sharpen stars</code> 调到 0.5 以上。</p>
 <p><strong>Normalization</strong> — 归一化方案 默认 <strong>FKv3</strong></p>
 <p>模块把图像换算成网络能接受的格式,再换算回来。 <strong>保持 FKv3 即可</strong>,这是当前的标准方案。</p>
 <p><code>None</code> 表示不做任何归一化,像素原样送进模型。只适用于归一化本身接近恒等的模型;
@@ -261,9 +315,9 @@ h2[id],h3[id]{scroll-margin-top:14px}
 <p><code>Sharpen nonstellar = 0.5</code> 再跑一次。</p>
 <ol><li>用 Blink 或对比视图,把原图和处理结果来回切着看。</li><li><strong>保留原图</strong>。不要在同一张图上反复叠加运行——会累积过度锐化。</li></ol>
 <h3 id="耗时参考">耗时参考</h3>
-<p>CPU 模式下大约 <strong>每百万像素 5~6 秒</strong>:</p>
-<div class="tbl"><table><thead><tr><th>图像尺寸</th><th>像素数</th><th>参考耗时(CPU)</th></tr></thead><tbody><tr><td>2600 × 2900</td><td>7.5 M</td><td>约 45 秒</td></tr><tr><td>3000 × 3000</td><td>9 M</td><td>约 50 秒</td></tr><tr><td>4900 × 3200</td><td>15.7 M</td><td>约 1.5 分钟</td></tr><tr><td>6000 × 3800</td><td>23 M</td><td>约 2 分钟</td></tr></tbody></table></div>
-<p>GPU 会明显更快。实际时间取决于 CPU 型号与内存带宽。</p>
+<p>CPU 模式实测约 <strong>每百万像素 8 秒</strong>(16 逻辑核):</p>
+<div class="tbl"><table><thead><tr><th>图像尺寸</th><th>像素数</th><th>实测耗时(CPU)</th></tr></thead><tbody><tr><td>2600 × 2900</td><td>7.6 M</td><td>约 60 秒</td></tr><tr><td>3000 × 3000</td><td>9 M</td><td>约 75 秒</td></tr><tr><td>4900 × 3200</td><td>15.7 M</td><td>约 2 分钟</td></tr><tr><td>6000 × 3800</td><td>23 M</td><td>约 3 分钟</td></tr></tbody></table></div>
+<p>GPU 会明显更快,但本模块的 GPU 路径尚未做过完整验证 —— 如果报错或结果异常,改回 <code>Auto</code> 或 <code>CPU</code>。</p>
 <hr>
 <h2 id="7-参数速查表">7. 参数速查表</h2>
 <div class="tbl"><table><thead><tr><th>参数</th><th>范围</th><th>默认</th><th>一句话</th></tr></thead><tbody><tr><td>Model path</td><td>—</td><td>(空)</td><td>必填,指向 <code>bxt5.onnx</code></td></tr><tr><td>Sharpen stars</td><td>0 ~ 0.7</td><td><strong>0.5</strong></td><td>星点锐化强度</td></tr><tr><td>Adjust star halos</td><td>−0.5 ~ 0.5</td><td><strong>0</strong></td><td>星点外圈明暗</td></tr><tr><td>Sharpen nonstellar</td><td>0 ~ 1.0</td><td><strong>0.5</strong></td><td>非星点结构锐化</td></tr><tr><td>Automatic PSF</td><td>开 / 关</td><td><strong>开</strong></td><td>自动估星点大小</td></tr><tr><td>PSF diameter (px)</td><td>0 ~ 8</td><td><strong>0</strong></td><td>手动指定 FWHM</td></tr><tr><td>Correct only</td><td>开 / 关</td><td><strong>关</strong></td><td>只校正,不锐化</td></tr><tr><td>Normalization</td><td>FKv3 / None</td><td><strong>FKv3</strong></td><td>保持 FKv3</td></tr><tr><td>Tile overlap</td><td>0 ~ 0.5</td><td><strong>0.2</strong></td><td>保持 0.2</td></tr><tr><td>Reflect border padding</td><td>开 / 关</td><td><strong>开</strong></td><td>当前方案下无效,保持默认</td></tr><tr><td>Compute device</td><td>Auto / GPU / CPU</td><td><strong>Auto</strong></td><td>出错就改 Auto</td></tr><tr><td>Verbose console output</td><td>开 / 关</td><td><strong>开</strong></td><td>打印诊断信息</td></tr></tbody></table></div>
@@ -271,6 +325,7 @@ h2[id],h3[id]{scroll-margin-top:14px}
 <hr>
 <h2 id="8-常见问题">8. 常见问题</h2>
 <p><strong>Q:菜单里找不到 FKAstroInference</strong></p>
+<p><strong>最常见的原因是漏了「登记」这一步。</strong> PixInsight 1.9 不再自动扫描 <code>bin\</code> 里的新 DLL —— 文件放对了、签名也对了,但没写进 PI 的模块清单,菜单里就不会出现,而且启动时<strong>不报任何错</strong>。 跑一次 <code>install-to-pi.ps1 -Register</code> 即可,详见 §4。</p>
 <ol><li>确认 <code>FKAstro-pxm.dll</code> <strong>和</strong> <code>FKAstro-pxm.xsgn</code> 都在 <code>PixInsight\bin\</code> 下;</li><li>确认签名成功(没有 <code>.xsgn</code> 就不会加载);</li><li>完全退出 PixInsight 再启动(不是关窗口);</li><li>看 PI 启动时的 Process Console 有没有报错。</li></ol>
 <p><strong>Q:报错说找不到模型 / 无法加载模型</strong></p>
 <p><code>Model path</code> 没设或路径不对。注意:</p>
@@ -289,6 +344,10 @@ h2[id],h3[id]{scroll-margin-top:14px}
 <ul><li>确认 <code>Tile overlap</code> 是 0.2;</li><li>用 <code>Verbose</code> 看分块数是否合理;</li><li>把结果反馈出来。</li></ul>
 <p><strong>Q:比 BXT 慢</strong></p>
 <p>目前只做了单线程为主的实现,GPU 加速也还在完善。CPU 模式下参考 §6 的耗时表。</p>
+<p><strong>Q:签名时卡住 / 提示要关闭 PixInsight</strong></p>
+<p>签名必须在 PI <strong>完全退出</strong>的状态下做。PI 已在运行时,再启动它只会把签名请求转交给已运行的实例并立即返回,于是签名变成异步的,脚本无从判断何时结束。关掉 PI 再跑一次即可。</p>
+<p><strong>Q:处理到一半报「unknown exception in pipeline」</strong></p>
+<p>这是早期版本的一个已知缺陷(工作线程里的异常没有被正确捕获),已在当前版本修复 —— 现在改成在主线程上串行执行。如果仍遇到,请把 <code>Verbose console output</code> 打开后控制台的完整输出反馈出来。</p>
 <p><strong>Q:能和 BXT 混用吗?</strong></p>
 <p>不建议在同一张图上两个都跑。要对比的话,用原图各跑一次再比。</p>
 <hr>

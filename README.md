@@ -46,41 +46,54 @@ D:\Astro\Models\bxt5.onnx
 
 ## 安装
 
-PixInsight 要求模块签名,**未签名的模块无法加载**。整个过程约 1 分钟。
+PixInsight 对第三方模块有**三道关卡**,少一步都不会出现在菜单里:
 
-### 第 1 步:创建签名身份(只需一次)
+| 步骤 | 缺了会怎样 |
+|---|---|
+| **签名** | 未签名的模块直接拒绝加载 |
+| **拷贝** | `.dll` 和 `.xsgn` 必须都在 `bin\` 下 |
+| **登记** | PI 1.9 **不再自动扫描 `bin\`** —— 文件在,菜单里却没有,而且**不报错** |
 
-PixInsight 菜单 `Edit → Local Signing Identity...`,设定密码,会生成一个 `.xssk` 密钥文件。
+全部做完约 3 分钟。
 
-> ⚠️ **务必勾选 "Make the local signing identity persistent"**
+### 第 1 步:生成签名密钥(只需一次)
+
+菜单 `Script → Development → SigningKeys`,在弹出的窗口里:
+
+- ☑ **Generate Signing Keys**
+- **Developer** — **留空**(那是给认证开发者 CPD 用的)
+- ☑ **Local signing identity** ← 关键
+- **Output → Keys file** — 必须以 `.xssk` 结尾,例如 `C:\PI\me.xssk`
+- **Output → Password** — 设一个保护密码,**记牢**
+- 点 **Run**
+
+### 第 2 步:把密钥注册给 PixInsight(只需一次)
+
+菜单 `Edit → Local Signing Identity...`,选中上一步的 `.xssk`,输入密码,**勾上「Make the local signing identity persistent」**,确定。
+
+> ⚠️ 这个对话框只能**选择**已有文件,不能新建 —— 所以顺序不能反。
 >
-> 不勾选的话,签好的模块在加载时会报 `Unknown code signing identity`。
-> 这是 PixInsight 1.9 上最常见的坑。
+> ⚠️ 不勾持久化的话,模块加载时会报 `Unknown code signing identity`。
 
-### 第 2 步:签名
+### 第 3 步:签名 + 安装 + 登记
 
-把 `FKAstro-pxm.dll` 从压缩包里解出来,然后执行:
-
-```
-"D:\PixInsight\bin\PixInsight.exe" ^
-  --sign-module-file="C:\路径\FKAstro-pxm.dll" ^
-  --xssk-file="C:\路径\你的密钥.xssk" ^
-  --xssk-password="你的密码"
-```
-
-成功后在 DLL 旁边会多出一个同名的 `FKAstro-pxm.xsgn` 文件。
-
-### 第 3 步:拷贝并重启
-
-把 **两个文件**一起放进 PixInsight 的模块目录:
+**先把 PixInsight 完全退出**,然后在解压目录下执行:
 
 ```
-<PixInsight 安装目录>\bin\
-├── FKAstro-pxm.dll
-└── FKAstro-pxm.xsgn
+cd <解压目录>\src\deploy
+.\install-to-pi.ps1 -DllPath .\FKAstro-pxm.dll `
+                    -XsskPath C:\PI\me.xssk `
+                    -XsskPassword "你的密码" `
+                    -Sign -Install -Register
 ```
 
-重启 PixInsight。菜单里出现 `Process → Preprocessing → FKAstroInference` 就是装好了。
+`-Register` 会把模块写进 PixInsight 的模块清单(会自动备份设置文件)。
+
+> 不习惯用脚本?手册 §4.2 有完整的手动步骤。
+
+### 第 4 步:启动 PixInsight
+
+菜单里出现 `Process → Preprocessing → FKAstroInference` 就是装好了。
 
 ---
 
@@ -101,9 +114,21 @@ PixInsight 菜单 `Edit → Local Signing Identity...`,设定密码,会生成一
 
 ## 常见问题
 
+**菜单里没有 FKAstroInference,启动也不报错**
+
+漏了**登记**这一步。PixInsight 1.9 不会自动扫描 `bin\` 里的新 DLL,文件放对了、签名也对了,没写进模块清单就不会出现 —— 而且不提示。跑一次 `install-to-pi.ps1 -Register` 即可。
+
 **提示 `Unknown code signing identity`**
 
-签名身份没有持久化。回到第 1 步,勾上 persistent 后重新签一次。
+签名身份没有持久化。回到第 2 步,勾上 persistent,然后重新签一次(第 3 步)。
+
+**勾了 Correct only,跑完看不出变化**
+
+正常。这个模式只修正星点形状,改动量在万分之一量级,屏幕上几乎不可见。想看明显效果请关掉它、把 `Sharpen stars` 调到 0.5 以上。
+
+**签名时脚本卡住,或提示要先关闭 PixInsight**
+
+签名必须在 PI 完全退出时做。PI 已经在运行时,新进程只会把请求转交给它并立刻返回,签名变成异步的,脚本无从判断何时结束。
 
 **提示找不到模型,或输出全黑**
 
@@ -111,7 +136,7 @@ PixInsight 菜单 `Edit → Local Signing Identity...`,设定密码,会生成一
 
 **能不能拷给别人用?**
 
-可以,但对方必须用**自己的**签名身份重新签一次(第 2 步)。
+可以,但对方必须用**自己的**签名身份重新签一次(第 3 步)。
 签名与 PixInsight 许可证绑定,已签好的文件拷到别人机器上不认。
 
 **处理到一半内存不足**

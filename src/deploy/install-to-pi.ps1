@@ -19,11 +19,16 @@
 #   # 1) 先体检, 什么都不改
 #   powershell -ExecutionPolicy Bypass -File install-to-pi.ps1 -DllPath .\FKAstro-pxm.dll
 #
-#   # 2) 确认无误后签名 + 安装
+#   # 2) 确认无误后签名 + 安装 + 注册(三件一起做)
 #   powershell -ExecutionPolicy Bypass -File install-to-pi.ps1 -DllPath .\FKAstro-pxm.dll `
-#       -XsskPath D:\keys\me.xssk -XsskPassword 'xxx' -Sign -Install
+#       -XsskPath D:\keys\me.xssk -XsskPassword 'xxx' -Sign -Install -Register -Force
 #
 #   # 3) 重启 PixInsight
+#
+# 关于 -Register:
+#   PI 1.9 不再自动发现 bin\ 里的新 DLL —— 它照 %APPDATA%\Pleiades 里那份
+#   模块清单加载。不登记的话, 文件在 bin 里、进程却不会出现在菜单中。
+#   -Register 就是往那份清单里加一行(会先备份设置文件)。
 
 param(
     [Parameter(Mandatory=$true)][string]$DllPath,
@@ -34,6 +39,7 @@ param(
 
     [switch]$Sign,
     [switch]$Install,
+    [switch]$Register,      # 把模块登记进 PI 的模块表(1.9 必需, 否则不加载)
     [switch]$Force          # 目标已存在同名文件时也覆盖(默认会拒绝)
 )
 
@@ -94,21 +100,45 @@ foreach ($t in @($targetDll, $targetXsgn)) {
 }
 if ($XsskPath) { Say "  签名命令    PixInsight.exe --sign-module-file=`"$DllPath`" --xssk-file=`"$XsskPath`" --xssk-password=***" }
 
-if (-not $Sign -and -not $Install) {
+if (-not $Sign -and -not $Install -and -not $Register) {
     Say ""
-    Say "以上只是体检。要执行请加 -Sign 和/或 -Install。"
+    Say "以上只是体检。要执行请加 -Sign / -Install / -Register。"
     exit 0
 }
 
 # ---------------------------------------------------------------------------
 if ($Sign) {
     Say "=== 3. 签名 ==="
+
+    if (Get-Process -Name PixInsight -ErrorAction SilentlyContinue) {
+        Die ("PixInsight 正在运行。请先完全退出 PI 再签名 ——`n" +
+             "  PI 已在运行时, 再启动它只会把签名请求转交给已运行的实例并立即返回,`n" +
+             "  于是签名是异步完成的, 脚本无法判断何时结束。")
+    }
+
     $xsgn = "$($dll.FullName).xsgn" -replace '\.dll\.xsgn$', '.xsgn'
     Remove-Item $xsgn -ErrorAction SilentlyContinue
+
     # 注意: 签名是设备相关的(身份 ID 派生自 PI 许可证), 所以必须在目标机器上做。
+    #
+    # PixInsight.exe 是 GUI 程序: PowerShell 不会等它结束, 也不会设置 $LASTEXITCODE。
+    # 所以这里既不看退出码, 也不假设它同步完成 —— 而是轮询等签名文件出现。
     & $exe "--sign-module-file=$($dll.FullName)" "--xssk-file=$XsskPath" "--xssk-password=$XsskPassword"
-    if ($LASTEXITCODE -ne 0) { Die "签名失败 (exit $LASTEXITCODE)" }
-    if (-not (Test-Path $xsgn)) { Die "签名命令返回 0 但没有产出 $xsgn" }
+
+    $deadline = 90
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    while (-not (Test-Path $xsgn) -and $sw.Elapsed.TotalSeconds -lt $deadline) {
+        Start-Sleep -Milliseconds 300
+    }
+    # 签名完成后 PI 通常还留着进程, 收掉它
+    Get-Process -Name PixInsight -ErrorAction SilentlyContinue |
+        ForEach-Object { try { Stop-Process -Id $_.Id -Force -ErrorAction Stop } catch { } }
+
+    if (-not (Test-Path $xsgn)) {
+        Die ("等了 $deadline 秒仍未生成 $xsgn`n" +
+             "  最常见原因: Edit → Local Signing Identity… 里没有注册这个 .xssk,`n" +
+             "  或密码不对。请先在 PI 里完成注册(勾选 Make the local signing identity persistent)。")
+    }
     Say "已生成 $xsgn  ($((Get-Item $xsgn).Length) 字节)"
 }
 
@@ -135,10 +165,59 @@ if ($Install) {
     }
 }
 
+# ---------------------------------------------------------------------------
+if ($Register) {
+    Say "=== 5. 注册到 PixInsight 模块表 ==="
+
+    # PI 1.9 不再扫描 bin\ 下的新 DLL, 而是照 Settings 里的一份清单加载。
+    # 清单在 %APPDATA%\Pleiades\core-001-pxi.settings 的 <i k="Modules"> 节点下。
+    # 注意文件里有两个同名节点(一个是文件对话框的历史目录), 要挑含 *-pxm.dll 的那个。
+    $settings = Join-Path $env:APPDATA 'Pleiades\core-001-pxi.settings'
+    if (-not (Test-Path $settings)) {
+        Die "找不到 PI 的设置文件: $settings`n  请先启动一次 PixInsight。"
+    }
+
+    $entry = "@pxi_bin_dir/$($dll.Name)"
+    $text  = [System.IO.File]::ReadAllText($settings, [System.Text.Encoding]::UTF8)
+
+    if ($text.Contains($entry)) {
+        Say "已在模块表中, 无需改动"
+    } else {
+        $blocks = [regex]::Matches($text, '<i k="Modules">')
+        $target = $null
+        foreach ($m in $blocks) {
+            $end = $text.IndexOf('</i>', $m.Index)
+            if ($end -lt 0) { continue }
+            $blk = $text.Substring($m.Index, $end - $m.Index)
+            if ([regex]::Matches($blk, '-pxm\.dll').Count -gt 10) { $target = @($m.Index, $end, $blk); break }
+        }
+        if (-not $target) { Die "在设置文件里找不到模块清单节点" }
+
+        $blk = $target[2]
+        $nums = [regex]::Matches($blk, '<v k="(0{6,}\d+)"') | ForEach-Object { [int]$_.Groups[1].Value }
+        $next = ($nums | Measure-Object -Maximum).Maximum + 1
+        $line = '<v k="{0:D8}" t="s">{1}</v>' -f $next, $entry
+
+        $bak = "$settings.bak-fkastro"
+        Copy-Item $settings $bak -Force
+        Say "已备份设置 -> $(Split-Path $bak -Leaf)"
+
+        $newText = $text.Insert($target[1], $line)
+        try { [xml]$null = $newText } catch { Copy-Item $bak $settings -Force; Die "改完 XML 不合法, 已还原: $_" }
+
+        $utf8 = New-Object System.Text.UTF8Encoding($false)
+        [System.IO.File]::WriteAllText($settings, $newText, $utf8)
+        Say "已登记 $entry  (编号 $('{0:D8}' -f $next))"
+    }
+}
+
 Say ""
 Say "=== 完成 ==="
-Say "下一步: 重启 PixInsight。启动时它会扫描 bin\\ 下的 *-pxm.dll。"
-Say "加载后模块名为 FKAstro, 进程参数里用 modelPath 指定 .onnx 模型。"
+Say "下一步: 启动 PixInsight。"
+Say "  菜单里应出现  Process → Preprocessing → FKAstroInference"
+Say "  第一次使用请在最上面的 Model path 里指到 .onnx 模型文件。"
 Say ""
-Warn "尚未验证过:PI 1.9.5 是否会弹'发现新模块'确认框, 或是否需要手动注册。"
-Warn "若加载失败, 先看 控制台 与 控制台 → 消息; 最常见原因是签名身份没设成持久化。"
+if ($Install -and -not $Register) {
+    Warn "提醒: 只做了安装、没做注册。PI 1.9 不会自动发现 bin 里的新模块,"
+    Warn "      菜单里可能看不到 FKAstroInference。下次请加 -Register。"
+}
