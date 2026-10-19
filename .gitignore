@@ -34,3 +34,8 @@ samples/*
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# ---- 本地临时脚本(下划线开头, 不入库)----
+/_*.py
+/_*.mjs
+/_*.ps1
