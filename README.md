@@ -28,6 +28,11 @@ Windows 版 PixInsight 神经网络去卷积模块。
 **不需要另装任何运行库。** 推理引擎(PixInsight 1.9 自带的 ONNX Runtime)
 和 C++ 运行库 PixInsight 都已包含。
 
+**关于 GPU**:PixInsight 自带的那份 ONNX Runtime 是 **CPU-only 构建**,所以默认跑在 CPU 上
+(约每百万像素 8 秒)。想启用 GPU 需要另外准备一份带 CUDA 或 DirectML 执行器的
+ONNX Runtime,用环境变量 BXT_ORT_DLL 指过去即可,**不必替换 PixInsight 的文件**。
+详见手册 §5.2。
+
 ---
 
 ## 准备模型文件

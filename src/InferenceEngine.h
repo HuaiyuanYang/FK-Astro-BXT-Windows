@@ -131,6 +131,15 @@ public:
       return m_effectiveDevice;
    }
 
+   /*
+    * 实际被追加进会话的执行器名, 例如 "CUDAExecutionProvider"。
+    * 空字符串 = 只用 ORT 的默认 CPU 执行器。
+    */
+   const std::string& ActiveProvider() const
+   {
+      return m_activeProvider;
+   }
+
    void Unload();
 
    /*
@@ -163,6 +172,7 @@ private:
    TensorShape m_outputShape;
    std::string m_lastError;
    std::string m_runtimeVersion;
+   std::string m_activeProvider;      // 实际追加的执行器, 空 = CPU
    std::vector<std::string> m_providers;
 
    // 运行时打开的 ORT(不透明指针, 避免把头文件泄漏给调用方)

@@ -76,6 +76,10 @@ int main( int argc, char** argv )
    std::printf( "RUNTIME   %s\n", eng.RuntimeVersion().c_str() );
    for ( size_t i = 0; i < eng.AvailableProviders().size(); ++i )
       std::printf( "EP        %s\n", eng.AvailableProviders()[i].c_str() );
+   std::printf( "ACTIVE    %s\n",
+                eng.ActiveProvider().empty() ? "(default CPU)"
+                                             : eng.ActiveProvider().c_str() );
+   std::printf( "DEVICE    %d (requested %d)\n", eng.EffectiveDevice(), 0 );
 
    const fka::TensorShape in  = eng.InputShape();
    const fka::TensorShape out = eng.OutputShape();

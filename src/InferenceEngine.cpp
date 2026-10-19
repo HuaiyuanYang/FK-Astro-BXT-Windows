@@ -214,6 +214,7 @@ void InferenceEngine::Unload()
    m_inStage.clear();
    m_paramsStage.clear();
    m_providers.clear();
+   m_activeProvider.clear();
    m_runtimeVersion.clear();
 }
 
@@ -241,26 +242,91 @@ bool InferenceEngine::Load( const std::string& path, int device )
    m_env = env;
    api->DisableTelemetryEvents( env );
 
-   OrtSessionOptions* so = nullptr;
-   if ( ( st = api->CreateSessionOptions( &so ) ) != nullptr )
-   {
-      m_lastError = TakeError( st );
-      ReleaseAll();
-      return false;
-   }
-   api->SetIntraOpNumThreads( so, 0 );          // 0 = 让 ORT 自行决定
-   api->SetInterOpNumThreads( so, 1 );
-   api->SetSessionGraphOptimizationLevel( so, ORT_ENABLE_ALL );
-   api->SetSessionLogSeverityLevel( so, 3 );    // 3 = ERROR
-
-   // ⚠️ ORT 1.25: (env, model_path, options, out)
+   // ---- 执行器选择 ----
+   //
+   // ORT 的通用接口 SessionOptionsAppendExecutionProvider() 可以按名字追加
+   // 执行器, 不需要各家的选项结构体。做法:
+   //   * 用 GetAvailableProviders() 拿到这个 ORT 构建实际支持哪些执行器;
+   //   * 按 device 排出偏好序, 逐个尝试 —— 追加成功**且**会话建得起来才算数;
+   //   * 全部失败就退回 ORT 默认的 CPU 执行器, 不报错。
+   //
+   // 硬件依赖: CUDA 执行器需要同目录的 onnxruntime_providers_cuda.dll 加
+   // CUDA 运行时; DirectML 需要 DirectML.dll。PixInsight 自带的 1.25 是
+   // CPU-only 构建, 两者都没有 —— 那种情况下这里会正常落到 CPU, 并在
+   // Verbose 输出里说明。
    std::wstring wpath = ToWide( path );
-   OrtSession* sess = nullptr;
-   st = api->CreateSession( env, wpath.c_str(), so, &sess );
-   api->ReleaseSessionOptions( so );
-   if ( st != nullptr )
+
+   std::vector<std::string> candidates;
+   if ( device != DeviceCPU )
    {
-      m_lastError = TakeError( st );
+      // 偏好序。TensorRT 要先构建引擎并缓存, 对插件来说首次启动太慢;
+      // OpenVINO 会改变数值行为 —— 两者都不进默认序, 只用 CUDA / DirectML。
+      const char* want[] = { "CUDAExecutionProvider", "DmlExecutionProvider" };
+      for ( const char* w : want )
+         for ( const std::string& have : m_providers )
+            if ( have == w )
+               candidates.push_back( w );
+   }
+
+   struct Attempt
+   {
+      const char* provider;   // nullptr = 不追加, 用 ORT 默认 CPU
+      int         device;
+   };
+
+   std::vector<Attempt> plan;
+   for ( const std::string& c : candidates )
+      plan.push_back( Attempt{ c.c_str(), DeviceGPU } );
+   plan.push_back( Attempt{ nullptr, DeviceCPU } );    // 兜底
+
+   OrtSession* sess = nullptr;
+   std::string lastError;
+
+   for ( const Attempt& a : plan )
+   {
+      OrtSessionOptions* so = nullptr;
+      if ( ( st = api->CreateSessionOptions( &so ) ) != nullptr )
+      {
+         lastError = TakeError( st );
+         continue;
+      }
+      api->SetIntraOpNumThreads( so, 0 );          // 0 = 让 ORT 自行决定
+      api->SetInterOpNumThreads( so, 1 );
+      api->SetSessionGraphOptimizationLevel( so, ORT_ENABLE_ALL );
+      api->SetSessionLogSeverityLevel( so, 3 );    // 3 = ERROR
+
+      if ( a.provider != nullptr )
+      {
+         // 空选项 = 各执行器自己的默认值(device_id = 0 等)
+         OrtStatus* es = api->SessionOptionsAppendExecutionProvider(
+                            so, a.provider, nullptr, nullptr, 0 );
+         if ( es != nullptr )
+         {
+            lastError = TakeError( es );
+            api->ReleaseSessionOptions( so );
+            continue;
+         }
+      }
+
+      // ⚠️ ORT 1.25: (env, model_path, options, out)
+      OrtSession* made = nullptr;
+      st = api->CreateSession( env, wpath.c_str(), so, &made );
+      api->ReleaseSessionOptions( so );
+
+      if ( st == nullptr )
+      {
+         sess              = made;
+         m_activeProvider  = ( a.provider != nullptr ) ? a.provider : std::string();
+         m_effectiveDevice = a.device;
+         break;
+      }
+
+      lastError = TakeError( st );
+   }
+
+   if ( sess == nullptr )
+   {
+      m_lastError = lastError.empty() ? "CreateSession failed." : lastError;
       ReleaseAll();
       return false;
    }

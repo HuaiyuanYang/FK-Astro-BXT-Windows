@@ -1,4 +1,4 @@
-﻿/*
+/*
  * fk-astro — FKAstroInference process implementation
  *
  * Runs a user-supplied CoreML model over the pixels of the current view,
@@ -936,7 +936,7 @@ bool FKAstroInferenceInstance::ExecuteOn( pcl::View& view )
          "fk-astro: done in %.1f s", sec ).c_str() );
    }
 
-   if ( p_verbose && engine.EffectiveDevice() != int( p_device ) )
+   if ( p_verbose )
    {
       const char* devName = "?";
       switch ( engine.EffectiveDevice() )
@@ -946,8 +946,15 @@ bool FKAstroInferenceInstance::ExecuteOn( pcl::View& view )
       case fka::DeviceNE:   devName = "CPU+ANE"; break;
       case fka::DeviceCPU:  devName = "CPU"; break;
       }
+      const std::string& prov = engine.ActiveProvider();
       pcl::Console().WriteLn( pcl::IsoString().Format(
-         "fk-astro: note: compute device fell back to %s", devName ).c_str() );
+         "fk-astro: compute device: %s%s%s", devName,
+         prov.empty() ? "" : " via ",
+         prov.empty() ? "" : prov.c_str() ).c_str() );
+
+      if ( engine.EffectiveDevice() != int( p_device ) )
+         pcl::Console().WriteLn( pcl::IsoString().Format(
+            "fk-astro: note: 请求的设备不可用, 已回落到 %s", devName ).c_str() );
    }
 
    return true;
