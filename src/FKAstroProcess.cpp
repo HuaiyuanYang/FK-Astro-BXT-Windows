@@ -798,45 +798,33 @@ bool FKAstroInferenceInstance::ExecuteOn( pcl::View& view )
    if ( engine.HasParamsInput() )
    {
       C.params.assign( engine.ParamsSize(), 0.0f );
-      if ( p_correctOnly )
-      {
-         // Correct Only: the ENTIRE tensor is zero.
-         //
-         // This was verified empirically against the official BlurXTerminator by
-         // running both on the same input and comparing the outputs pixel by pixel:
-         //
-         //   tensor [0,0,0,1,0]  ->  correlation 0.852   RMS 1.279e-02
-         //   tensor [0,0,0,0,0]  ->  correlation 0.978   RMS 2.686e-03   <-- this one
-         //
-         // The earlier mapping set slot [3] to 1 here ("automatic PSF still
-         // applies"), taken from fk-astro's parameter order. That is wrong: with
-         // slot [3] = 1 the model over-responds to star structure (it boosts a
-         // perfect Gaussian PSF by about +0.23 in the normalised domain, where
-         // the official implementation leaves it essentially untouched).
-         //
-         // Keeping this block explicit (rather than relying on the initial fill)
-         // so the intent stays visible: correct-only means "all zeros".
-         for ( size_t i = 0; i < C.params.size() && i < 5; ++i )
-            C.params[i] = 0.0f;
-      }
-      else
-      {
-         if ( C.params.size() > 0 )
-            C.params[0] = float( p_sharpenStars );
-         if ( C.params.size() > 1 )
-            C.params[1] = float( p_adjustStarHalos );  // slider value passed as-is
-         if ( C.params.size() > 2 )
-            C.params[2] = float( p_autoPSF ? 0.0 : p_psfDiameter / 2.0 );
-         // Slot [3] is NOT an "auto PSF" flag: the same empirical comparison in
-         // sharpen mode also prefers 0 (correlation 0.846 vs 0.776, RMS 2.4x
-         // lower). The meaning of this slot is still unknown; 0 is what the
-         // official implementation effectively uses. Automatic PSF selection is
-         // therefore conveyed by slot [2] == 0 rather than by a separate flag.
-         if ( C.params.size() > 3 )
-            C.params[3] = 0.0f;
-         if ( C.params.size() > 4 )
-            C.params[4] = float( p_sharpenNonstellar );
-      }
+
+      // 与 python/fkv3.py 的 parameters() 逐行对齐 —— 那边是与官方实现
+      // 对过账的版本, 这里不能自作主张。
+      //
+      // 顺序(对应 upstream Settings::Effective()):
+      //   correctOnly -> stars/halos/diameter/nonstellar 归零, autoPSF = true
+      //   lunar       -> stars/halos 归零, autoPSF = false
+      //   autoPSF     -> diameter 归零
+      //
+      // 特别注意第 4 槽: 它是 autoPSF 标志, **correct-only 时是 1, 不是 0**。
+      // 这里曾经硬写成 0(依据一段 FKv1 时代的实测注释, 那个结论在 FKv3 下
+      // 不成立)。实测在真实数据上, 槽 4 取 0 会让输出与正确结果差到
+      // 满量程的 58%(correct-only)/ 76%(sharpen)。
+      double stars    = p_correctOnly ? 0.0 : double( p_sharpenStars );
+      double halos    = p_correctOnly ? 0.0 : double( p_adjustStarHalos );
+      double nonst    = p_correctOnly ? 0.0 : double( p_sharpenNonstellar );
+      double diameter = p_correctOnly ? 0.0 : double( p_psfDiameter );
+      bool   autoPSF  = p_correctOnly ? true : bool( p_autoPSF );
+
+      if ( autoPSF )
+         diameter = 0.0;
+
+      if ( C.params.size() > 0 ) C.params[0] = float( stars );
+      if ( C.params.size() > 1 ) C.params[1] = float( halos );
+      if ( C.params.size() > 2 ) C.params[2] = float( diameter * 0.5 );
+      if ( C.params.size() > 3 ) C.params[3] = autoPSF ? 1.0f : 0.0f;
+      if ( C.params.size() > 4 ) C.params[4] = float( nonst );
       // 第 6 槽: gain = log10(x/a), 由归一化拟合状态给出(不是用户参数)。
       if ( useV3 && C.params.size() > 5 )
          C.params[5] = float( C.normalizer.Gain() );
@@ -851,8 +839,8 @@ bool FKAstroInferenceInstance::ExecuteOn( pcl::View& view )
          pmsg << "fk-astro: params["
               << pcl::IsoString().Format( "%d", int( C.params.size() ) ) << "]:";
          const char* names[6] = { " sharpenStars", " adjustStarHalos",
-                                  " psfDiameter/2", " slot3(unused)",
-                                  " sharpenNonstellar", " brightness" };
+                                  " psfDiameter/2", " autoPSF",
+                                  " sharpenNonstellar", " gain" };
          for ( size_t i = 0; i < C.params.size(); ++i )
          {
             pmsg << ( i < 6 ? names[i] : " unused" )

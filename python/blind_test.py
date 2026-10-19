@@ -44,7 +44,12 @@ def find_model():
     return None
 
 # 测试图与官方参考输出都放 samples/ 下(不随仓库分发)。
-SAMPLES = os.path.join(CONVERT, "samples")
+# 先找项目内, 再回退到工作区根目录。
+SAMPLES = next(
+    (d for d in (os.path.join(CONVERT, "samples"),
+                 os.path.join(WORKSPACE, "samples"))
+     if os.path.isdir(d)),
+    os.path.join(CONVERT, "samples"))
 
 
 def need(path, what):
