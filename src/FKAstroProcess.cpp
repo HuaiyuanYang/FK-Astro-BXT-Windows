@@ -1,4 +1,4 @@
-/*
+﻿/*
  * fk-astro — FKAstroInference process implementation
  *
  * Runs a user-supplied CoreML model over the pixels of the current view,
@@ -359,10 +359,18 @@ public:
 
    void Run() override
    {
-      INIT_THREAD_MONITOR()
+      // 诊断: 用一个阶段标记定位异常点。INIT_THREAD_MONITOR() 也必须放在
+      // try 里面 —— 之前它在外面, 一旦抛异常就会越过本类的 catch 直接穿出去。
+      // 注意用 IsoString(ASCII), 因为 pcl::String::c_str() 是 UTF-16。
+      pcl::IsoString stage = "entry";
+      m_stage = stage;
 
       try
       {
+         // 注意: 这里**不用** INIT_THREAD_MONITOR()。这个进程只有一个工作
+         // 单元, 所以 Run() 是直接在主线程上调用执行的, 线程监视器的宏要求
+         // 真正的 pcl::Thread 上下文, 在主线程上是不成立的。
+         stage = "cfg"; m_stage = stage;
          const RunConfig& C = *m_data.C;
          const int W = C.W, H = C.H, N = C.N;
          const size_t nx = C.gx.Count(), ny = C.gy.Count();
@@ -427,24 +435,29 @@ public:
                double ms = std::chrono::duration<double, std::milli>(
                               std::chrono::steady_clock::now() - tt ).count();
                pcl::Console().WriteLn( pcl::IsoString().Format(
-                  "fk-astro: [thread %d] tile %d: %.1f ms",
-                  int( m_begin > 0 ), int( t - m_begin ), ms ).c_str() );
+                  "fk-astro: tile %d: %.1f ms", int( t ), ms ).c_str() );
             }
 
-            UPDATE_THREAD_MONITOR( 1 )
+            // 进度 + 保持界面响应(在主线程上跑, 每隔若干块处理一次事件)
+            m_data.status += 1;
+            if ( ( t & 3 ) == 0 )
+               pcl::Module->ProcessEvents( /*excludeUserInputEvents*/ true );
          }
       }
       catch ( const std::exception& e )
       {
-         m_error = pcl::String( ( std::string( "fk-astro: thread exception: " )
+         m_error = pcl::String( ( std::string( "fk-astro: thread exception at [" )
+                                  + std::string( m_stage.c_str() ) + "]: "
                                   + e.what() ).c_str() );
       }
       catch ( ... )
       {
-         m_error = "fk-astro: unknown thread exception";
+         m_error = pcl::String( ( std::string( "fk-astro: unknown thread exception at [" )
+                                  + std::string( m_stage.c_str() ) + "]" ).c_str() );
       }
    }
    pcl::String m_error;
+   pcl::IsoString m_stage = "ctor";
 
 private:
 
@@ -490,58 +503,22 @@ void RunPipeline( pcl::GenericImage<P>& img, const RunConfig& C )
    data.acc = &acc;
    data.passes = passes;
 
-   pcl::ReferenceArray<FKAstroTileThread> threads;
-   threads.Add( new FKAstroTileThread( data, 0, total ) );
-   data.numThreads = threads.Length();
-
    if ( C.verbose )
-      pcl::Console().WriteLn( "" );
+      pcl::Console().WriteLn( pcl::IsoString().Format(
+         "fk-astro: stage: begin %d tile(s) [serial]", int( total ) ).c_str() );
 
-   for ( FKAstroTileThread& thread : threads )
-      thread.Start( pcl::ThreadPriority::Normal );
-
+   // 串行执行 —— 这个进程只有一个工作单元, pcl::Thread 只是多一层间接。
+   // 之前异常在"主线程等待线程"那段被吞掉, 根本定位不到真正出错的位置。
+   // 现在直接在主线程调用 Run(): 异常会带着 m_stage 直接抛上来。
    {
-      bool done = false;
-      size_t lastCount = 0;
-      while ( !done )
-      {
-         if ( threads[0].Wait( 10 ) )
-            done = true;
-
-         if ( data.mutex.TryLock() )
-         {
-            try
-            {
-               if ( data.total > 0 && data.count > lastCount )
-               {
-                  data.status += data.count - lastCount;
-                  lastCount = data.count;
-               }
-               data.mutex.Unlock();
-            }
-            catch ( ... )
-            {
-               data.mutex.Unlock();
-               for ( FKAstroTileThread& thread : threads )
-                  thread.Abort();
-               for ( FKAstroTileThread& thread : threads )
-                  thread.Wait();
-               threads.Destroy();
-               throw pcl::ProcessAborted();
-            }
-         }
-
-         pcl::Module->ProcessEvents( /*excludeUserInputEvents*/ true );
-      }
+      FKAstroTileThread worker( data, 0, total );
+      worker.Run();
+      if ( !worker.m_error.IsEmpty() )
+         throw pcl::Error( worker.m_error );
    }
 
-   for ( FKAstroTileThread& thread : threads )
-      if ( !thread.m_error.IsEmpty() )
-      {
-         threads.Destroy();
-         throw pcl::Error( thread.m_error );
-      }
-   threads.Destroy();
+   if ( C.verbose )
+      pcl::Console().WriteLn( "fk-astro: stage: all tiles done" );
 
    // ---- 写出: 整图只做一次逆变换, 且不除以权重和 ----
    if ( C.isCFA )

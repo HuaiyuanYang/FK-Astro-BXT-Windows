@@ -286,7 +286,11 @@ pcl::ProcessImplementation* FKAstroInterface::NewProcess() const
    instance->p_normScheme        = m_normScheme;
    instance->p_reflectPad        = m_reflectPad;
    instance->p_tileOverlap       = m_tileOverlap;
-   instance->p_device            = m_device;
+   // 下拉索引 -> 引擎枚举。两者顺序不同:
+   //   下拉: 0=Automatic(GPU) 1=GPU 2=CPU
+   //   引擎: 0=Auto 1=GPU 2=NE(Apple ANE) 3=CPU
+   // 直接传索引会让 "CPU" 变成 2 = NE, 在 Windows 上等同 Auto —— CPU 形同虚设。
+   instance->p_device            = ( m_device == 1 ? 1 : ( m_device == 2 ? 3 : 0 ) );
    instance->p_verbose           = m_verbose;
    return instance;
 }
@@ -308,7 +312,11 @@ bool FKAstroInterface::ImportProcess( const pcl::ProcessImplementation& P )
    m_normScheme        = int( instance->p_normScheme );
    m_reflectPad        = instance->p_reflectPad;
    m_tileOverlap       = instance->p_tileOverlap;
-   m_device            = int( instance->p_device );
+   // 引擎枚举 -> 下拉索引(见 ExportProcess 处的说明)。NE(2) 归到 Automatic。
+   {
+      const int d = int( instance->p_device );
+      m_device = ( d == 1 ? 1 : ( d == 3 ? 2 : 0 ) );
+   }
    m_verbose           = instance->p_verbose;
 
    if ( GUI != nullptr )
